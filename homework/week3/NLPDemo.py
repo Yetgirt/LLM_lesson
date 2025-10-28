@@ -1,7 +1,7 @@
 # coding:utf8
 import os
 
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE' #允许OpenMP 文件重复加载，程序继续运行
 import torch
 import torch.nn as nn
 import numpy as np
@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 基于pytorch的网络编写
 实现一个网络完成一个简单nlp任务
-第一个字符“A”出现在第几个位置，那么是第几类，不存在则第六类
+第一个字符“a”出现在第几个位置，那么是第几类，不存在则第六类
 
 """
 
@@ -26,26 +26,21 @@ class TorchModel(nn.Module):
     def __init__(self, vector_dim, vocab, hidden_size):
         super(TorchModel, self).__init__()
         self.embedding = nn.Embedding(len(vocab), vector_dim, padding_idx=0)  # embedding层
-        self.rnn = nn.RNN(vector_dim, hidden_size, bias=False, batch_first=True)
-
-        # self.pool = nn.AvgPool1d(sentence_length)   #池化层
-        self.linear = nn.Linear(hidden_size, 7)  # 线性层
-        # self.activation = torch.sigmoid     #sigmoid归一化函数
-        self.loss = nn.functional.cross_entropy  # loss函数采用均方差损失
+        self.rnn = nn.RNN(vector_dim, hidden_size, bias=False, batch_first=True) # rnn ：词向量维度，隐层维度，计算 ih,hh参数
+        self.linear = nn.Linear(hidden_size, 7)  # 线性层，输出类别
+        self.loss = nn.functional.cross_entropy  #交叉熵
 
     # 当输入真实标签，返回loss值；无真实标签，返回预测值
     def forward(self, x, y=None):
         x = self.embedding(x)  # (batch_size, sen_len) -> (batch_size, sen_len, vector_dim)
         output, hn = self.rnn(x)
         x = output[:, -1, :]
+        #logits 就是模型最后一层线性输出的“原始分数”（未归一化的预测值）
         logits = self.linear(x) #B_size x 类别
 
-        # y_pred = torch.argmax(vy_pred, dim=1) # torch取最大值，应该用torch.argmax
         if y is not None:
             return self.loss(logits, y)  # 必须预测值部分必须传logits（batch x 类别），
         else:
-            # pred = torch.argmax(logits, dim=1) #
-
             return logits  # 输出预测结果
 
 
@@ -120,11 +115,11 @@ def evaluate(model, vocab, sample_length):
 def main():
     # 配置参数
     epoch_num = 40  # 训练轮数
-    batch_size = 40  # 每次训练样本个数
+    batch_size = 80  # 每次训练样本个数
     train_sample = 500  # 每轮训练总共训练的样本总数
     char_dim = 20  # 每个字的维度
     sentence_length = 6  # 样本文本长度#
-    rnn_hidden_size = 40 #修改这个参数，越大越能反映顺序信息
+    rnn_hidden_size = 80 #修改这个参数，越大越能反映顺序信息
     learning_rate = 0.002  # 学习率
     # 建立字表
     vocab = build_vocab()
@@ -166,7 +161,7 @@ def main():
 def predict(model_path, vocab_path, input_strings):
     char_dim = 20  # 每个字的维度
     sentence_length = 6  # 样本文本长度
-    rnn_hidden_size = 40
+    rnn_hidden_size = 80
     vocab = json.load(open(vocab_path, "r", encoding="utf8"))  # 加载字符表
     model = build_model(char_dim, vocab, rnn_hidden_size)  # 建立模型
     model.load_state_dict(torch.load(model_path))  # 加载训练好的权重
@@ -185,5 +180,5 @@ def predict(model_path, vocab_path, input_strings):
 
 if __name__ == "__main__":
     # main()
-    test_strings = ["aavfa我", "azadfg", "rqwdea", "nakwww" , "nkawww" ,"n我kwww"]
+    test_strings = ["aavfa我","我我a我aa","我我vfaa" ,"azadfg", "rqwdea", "nakwww" , "nkawww" ,"n我kwww"]
     predict("model.pth", "vocab.json", test_strings)

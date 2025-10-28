@@ -80,11 +80,11 @@ def evaluate(model):
 
 def main():
     # 配置参数
-    epoch_num = 20  # 训练轮数
-    batch_size = 20  # 每次训练样本个数
+    epoch_num = 160  # 训练轮数
+    batch_size = 80  # 每次训练样本个数
     train_sample = 5000  # 每轮训练总共训练的样本总数
     input_size = 5  # 输入向量维度
-    learning_rate = 0.001  # 学习率
+    learning_rate = 0.006  # 学习率
     # 建立模型
     model = TorchModel(input_size)
     # 选择优化器
@@ -129,12 +129,12 @@ def predict(model_path, input_vec):
     model.eval()  # 测试模式
     with torch.no_grad():  # 不计算梯度
         result = model.forward(torch.FloatTensor(input_vec))  # 模型预测
-    for vec, res in zip(input_vec, result):
-        print("输入：%s, 预测类别：%d, 概率值：%f" % (vec, round(float(res)), res))  # 打印结果
-
+    for vec, prob_dist in zip(input_vec, result):
+        pred_class = prob_dist.argmax().item()  # 预测类别（int）
+        pred_prob = prob_dist[pred_class].item()  # 预测类别的概率（float）
+        print("输入：%s, 预测类别：%d, 概率值：%.4f" % (vec, pred_class, pred_prob))
 
 if __name__ == "__main__":
-    main()
-    model = TorchModel(5)
-    model.load_state_dict(torch.load("model.bin"))  # 加载训练好的权重
-    evaluate(model)  # 测试本轮模型结果
+    #main()
+    input_vec = [[1,2,4.44,4.5,4.4],[10,22,40.44,40.5,40.4],[0.1,0.2,0.444,0.445,0.444],[12,2,0.2,4.5,7.4]]
+    predict("model.bin",input_vec)
