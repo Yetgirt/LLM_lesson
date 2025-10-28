@@ -133,7 +133,7 @@ def predict(model_path, input_vec):
 
 
 if __name__ == "__main__":
-    # main()
+    main()
     model = TorchModel(5)
     model.load_state_dict(torch.load("model.bin"))  # 加载训练好的权重
     evaluate(model)  # 测试本轮模型结果

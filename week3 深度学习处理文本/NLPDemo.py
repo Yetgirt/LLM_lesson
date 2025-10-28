@@ -17,7 +17,7 @@ import json
 class TorchModel(nn.Module):
     def __init__(self, vector_dim, sentence_length, vocab):
         super(TorchModel, self).__init__()
-        self.embedding = nn.Embedding(len(vocab), vector_dim, padding_idx=0)  #embedding层
+        self.embedding = nn.Embedding(len(vocab), vector_dim, padding_idx=0)  #embedding层，padding_idx 填充特殊标记的index,nn.Embedding 要求输入张量是整数类型（torch.long 或 torch.int64），因为它需要将整数索引映射到对应的嵌入向量。
         self.pool = nn.AvgPool1d(sentence_length)   #池化层
         self.classify = nn.Linear(vector_dim, 1)     #线性层
         self.activation = torch.sigmoid     #sigmoid归一化函数
@@ -72,7 +72,7 @@ def build_dataset(sample_length, vocab, sentence_length):
         x, y = build_sample(vocab, sentence_length)
         dataset_x.append(x)
         dataset_y.append([y])
-    return torch.LongTensor(dataset_x), torch.FloatTensor(dataset_y)
+    return torch.LongTensor(dataset_x), torch.FloatTensor(dataset_y) #Q：为什么一个是LongTensor，一个是FloatTensor
 
 #建立模型
 def build_model(vocab, char_dim, sentence_length):
@@ -120,10 +120,10 @@ def main():
         watch_loss = []
         for batch in range(int(train_sample / batch_size)):
             x, y = build_dataset(batch_size, vocab, sentence_length) #构造一组训练样本
-            optim.zero_grad()    #梯度归零
+            optim.zero_grad()    #梯度归零，pytorch的梯度计算是累加的，避免前一次梯度影响。
             loss = model(x, y)   #计算loss
             loss.backward()      #计算梯度
-            optim.step()         #更新权重
+            optim.step()         #更新权重，每个模型的参数有.grad属性，在反向传播的时候，梯度就写进去了，后面就可以调用优化器进行参数更新。
             
             watch_loss.append(loss.item())
         print("=========\n第%d轮平均loss:%f" % (epoch + 1, np.mean(watch_loss)))

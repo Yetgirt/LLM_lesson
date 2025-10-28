@@ -59,6 +59,7 @@ print(h)
 print(output.detach().numpy(), "torch模型预测结果")
 print(h.detach().numpy(), "torch模型预测隐含层结果")
 print("---------------")
+
 diy_model = DiyModel(w_ih, w_hh, hidden_size)
 output, h = diy_model.forward(x)
 print(output, "diy模型预测结果")
