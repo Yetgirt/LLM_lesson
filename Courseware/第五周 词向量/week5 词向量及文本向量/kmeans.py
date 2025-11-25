@@ -24,7 +24,8 @@ class KMeansClusterer:  # k均值聚类
                 if distance < distance_min:
                     distance_min = distance
                     index = i
-            result[index] = result[index] + [item.tolist()]
+            # result[index] = result[index] + [item.tolist()] # + ： 列表拼
+            result[index].extend(item.tolist()) #append添加一个元素，extend加多个元素
         new_center = []
         for item in result:
             new_center.append(self.__center(item).tolist())
@@ -45,7 +46,7 @@ class KMeansClusterer:  # k均值聚类
 
     def __center(self, list):
         # 计算每一列的平均值
-        return np.array(list).mean(axis=0)
+        return np.array(list).mean(axis=0) #沿着行方向统计，向下。
 
     def __distance(self, p1, p2):
         #计算两点间距
@@ -58,7 +59,8 @@ class KMeansClusterer:  # k均值聚类
         if cluster_num < 0 or cluster_num > ndarray.shape[0]:
             raise Exception("簇数设置有误")
         # 取点的下标
-        indexes = random.sample(np.arange(0, ndarray.shape[0], step=1).tolist(), cluster_num)
+        # indexes = random.sample(np.arange(0, ndarray.shape[0], step=1).tolist(), cluster_num)
+        indexes = random.sample(range(ndarray.shape[0]), cluster_num) #更间接的做法
         points = []
         for index in indexes:
             points.append(ndarray[index].tolist())
