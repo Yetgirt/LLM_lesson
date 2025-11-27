@@ -10,7 +10,7 @@ from transformers import BertModel
 
 '''
 
-bert = BertModel.from_pretrained(r"E:\pretrain_models\bert-base-chinese", return_dict=False)
+bert = BertModel.from_pretrained(r".\bert-base-chinese", return_dict=False)
 state_dict = bert.state_dict()
 bert.eval()
 x = np.array([2450, 15486, 102, 2110])   #假想成4个字的句子
@@ -94,6 +94,22 @@ class DiyBert:
             x = self.single_transformer_layer_forward(x, i)
         return x
 
+    def single_transformer_layer_forward_pytorch(self, x, layer_index):
+        weights = self.transformer_weights[layer_index]
+        # 取出该层的参数，在实际中，这些参数都是随机初始化，之后进行预训练
+        q_w, q_b, \
+            k_w, k_b, \
+            v_w, v_b, \
+            attention_output_weight, attention_output_bias, \
+            attention_layer_norm_w, attention_layer_norm_b, \
+            intermediate_weight, intermediate_bias, \
+            output_weight, output_bias, \
+            ff_layer_norm_w, ff_layer_norm_b = weights
+        # self attention层
+
+        # bn层，并使用了残差机制
+        # feed forward层
+        # bn层，并使用了残差机制
     #执行单层transformer层计算
     def single_transformer_layer_forward(self, x, layer_index):
         weights = self.transformer_weights[layer_index]
@@ -211,7 +227,9 @@ diy_sequence_output, diy_pooler_output = db.forward(x)
 #torch
 torch_sequence_output, torch_pooler_output = bert(torch_x)
 
+print("\n")
 print(diy_sequence_output)
+print("\n")
 print(torch_sequence_output)
 
 # print(diy_pooler_output)
