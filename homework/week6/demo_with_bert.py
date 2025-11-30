@@ -24,7 +24,7 @@ class TorchModel(nn.Module):
         # self.layer = nn.Linear(input_dim, input_dim)
         # self.pool = nn.MaxPool1d(sentence_length)
 
-        self.bert = BertModel.from_pretrained(r"D:\desktop\LLM_turioals\materials\Courseware\week6 语言模型和预训练\bert-base-chinese", return_dict=False)
+        self.bert = BertModel.from_pretrained(r".\bert-base-chinese", return_dict=False)
 
         self.classify = nn.Linear(input_dim, 3)
         self.activation = torch.sigmoid     #sigmoid 做激活函数
@@ -114,7 +114,7 @@ def evaluate(model, vocab, sample_length):
     y = y.squeeze()
     print("A类样本数量：%d, B类样本数量：%d, C类样本数量：%d"%(y.tolist().count(0), y.tolist().count(1), y.tolist().count(2)))
     correct, wrong = 0, 0
-    with torch.no_grad():
+    with torch.no_grad():#和model.eval() 都是需要的，前者控制Dropout不发生作用、LayerNorm 层参数不改变
         y_pred = model(x)      #模型预测
         for y_p, y_t in zip(y_pred, y):  #与真实标签进行对比
             if int(torch.argmax(y_p)) == int(y_t):
@@ -126,14 +126,14 @@ def evaluate(model, vocab, sample_length):
 
 
 def main():
-    epoch_num = 1        #训练轮数
+    epoch_num = 30        #训练轮数
     batch_size = 20       #每次训练样本个数
     train_sample = 1000   #每轮训练总共训练的样本总数
     char_dim = 768         #每个字的维度
     sentence_length = 6   #样本文本长度
     vocab = build_vocab()       #建立字表
     model = build_model(vocab, char_dim, sentence_length)    #建立模型
-    optim = torch.optim.Adam(model.parameters(), lr=1e-4)   #建立优化器
+    optim = torch.optim.Adam(model.parameters(), lr=1e-5)   #建立优化器
     log = []
     for epoch in range(epoch_num):
         model.train()

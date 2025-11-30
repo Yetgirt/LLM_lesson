@@ -28,41 +28,8 @@ class DiyBert:
     def __init__(self, state_dict):
         self.num_attention_heads = 12
         self.hidden_size = 768
-        self.num_layers = 6        #注意这里的层数要跟预训练config.json文件中的模型层数一致
+        self.num_layers = 12        #注意这里的层数要跟预训练config.json文件中的模型层数一致
         self.load_weights_pytorch(state_dict)
-
-    def load_weights(self, state_dict):
-        #embedding部分
-        self.word_embeddings = state_dict["embeddings.word_embeddings.weight"].numpy()
-        self.position_embeddings = state_dict["embeddings.position_embeddings.weight"].numpy()
-        self.token_type_embeddings = state_dict["embeddings.token_type_embeddings.weight"].numpy()
-        self.embeddings_layer_norm_weight = state_dict["embeddings.LayerNorm.weight"].numpy()
-        self.embeddings_layer_norm_bias = state_dict["embeddings.LayerNorm.bias"].numpy()
-        self.transformer_weights = []
-        #transformer部分，有多层
-        for i in range(self.num_layers):
-            q_w = state_dict["encoder.layer.%d.attention.self.query.weight" % i].numpy()
-            q_b = state_dict["encoder.layer.%d.attention.self.query.bias" % i].numpy()
-            k_w = state_dict["encoder.layer.%d.attention.self.key.weight" % i].numpy()
-            k_b = state_dict["encoder.layer.%d.attention.self.key.bias" % i].numpy()
-            v_w = state_dict["encoder.layer.%d.attention.self.value.weight" % i].numpy()
-            v_b = state_dict["encoder.layer.%d.attention.self.value.bias" % i].numpy()
-            attention_output_weight = state_dict["encoder.layer.%d.attention.output.dense.weight" % i].numpy()
-            attention_output_bias = state_dict["encoder.layer.%d.attention.output.dense.bias" % i].numpy()
-            attention_layer_norm_w = state_dict["encoder.layer.%d.attention.output.LayerNorm.weight" % i].numpy()
-            attention_layer_norm_b = state_dict["encoder.layer.%d.attention.output.LayerNorm.bias" % i].numpy()
-            intermediate_weight = state_dict["encoder.layer.%d.intermediate.dense.weight" % i].numpy()
-            intermediate_bias = state_dict["encoder.layer.%d.intermediate.dense.bias" % i].numpy()
-            output_weight = state_dict["encoder.layer.%d.output.dense.weight" % i].numpy()
-            output_bias = state_dict["encoder.layer.%d.output.dense.bias" % i].numpy()
-            ff_layer_norm_w = state_dict["encoder.layer.%d.output.LayerNorm.weight" % i].numpy()
-            ff_layer_norm_b = state_dict["encoder.layer.%d.output.LayerNorm.bias" % i].numpy()
-            self.transformer_weights.append([q_w, q_b, k_w, k_b, v_w, v_b, attention_output_weight, attention_output_bias,
-                                             attention_layer_norm_w, attention_layer_norm_b, intermediate_weight, intermediate_bias,
-                                             output_weight, output_bias, ff_layer_norm_w, ff_layer_norm_b])
-        #pooler层
-        self.pooler_dense_weight = state_dict["pooler.dense.weight"].numpy()
-        self.pooler_dense_bias = state_dict["pooler.dense.bias"].numpy()
 
     def load_weights_pytorch(self, state_dict):
         #embedding部分
@@ -110,10 +77,6 @@ class DiyBert:
         # 加和后有一个归一化层
         embedding = self.layer_norm_pytorch(embedding, self.embeddings_layer_norm_weight, self.embeddings_layer_norm_bias,self.hidden_size)  # shpae: [max_len, hidden_size]
         return embedding
-
-    #embedding层实际上相当于按index索引，或理解为onehot输入乘以embedding矩阵
-    def get_embedding(self, embedding_matrix, x):
-        return np.array([embedding_matrix[index] for index in x])
 
     def get_embedding_pytorch(self, embedding_matrix, x):
         # 转成 tensor

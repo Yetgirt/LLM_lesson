@@ -24,7 +24,7 @@ import torch.nn.functional as F
 """
 class TorchModel(nn.Module):
     def __init__(self, input_size):
-        super(TorchModel, self).__init__()
+        super(TorchModel, self).__init__()#
         self.linear = nn.Linear(input_size, 5)  # 线性层
         self.loss = nn.functional.cross_entropy  # cross_entropy 期望目标标签是类别索引（LongTensor，值范围为 [0, num_classes-1]），而不是独热编码
 
