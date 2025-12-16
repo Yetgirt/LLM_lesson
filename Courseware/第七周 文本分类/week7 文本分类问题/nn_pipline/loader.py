@@ -38,7 +38,7 @@ class DataGenerator:
                 label = self.label_to_index[tag]
                 title = line["title"]
                 if self.config["model_type"] == "bert":
-                    input_id = self.tokenizer.encode(title, max_length=self.config["max_length"], pad_to_max_length=True)
+                    input_id = self.tokenizer.encode(title, max_length=self.config["max_length"], padding=True)
                 else:
                     input_id = self.encode_sentence(title)
                 input_id = torch.LongTensor(input_id)

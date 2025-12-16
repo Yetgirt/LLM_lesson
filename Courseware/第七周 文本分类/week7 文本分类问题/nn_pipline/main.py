@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import torch
-import os
 import random
 import os
 import numpy as np
@@ -10,6 +9,7 @@ from config import Config
 from model import TorchModel, choose_optimizer
 from evaluate import Evaluator
 from loader import load_data
+from logger import logger
 #[DEBUG, INFO, WARNING, ERROR, CRITICAL]
 logging.basicConfig(level=logging.INFO, format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ def main(config):
     return acc
 
 if __name__ == "__main__":
-    main(Config)
+    # main(Config)
 
     # for model in ["cnn"]:
     #     Config["model_type"] = model
@@ -78,16 +78,21 @@ if __name__ == "__main__":
     #对比所有模型
     #中间日志可以关掉，避免输出过多信息
     # 超参数的网格搜索
-    for model in ["gated_cnn", 'bert', 'lstm']:
+    for model in ["gated_cnn", 'lstm']:
         Config["model_type"] = model
+        logger.info("model : %s" % model)
         for lr in [1e-3, 1e-4]:
             Config["learning_rate"] = lr
+            logger.info("lr : %f" % lr)
             for hidden_size in [128]:
                 Config["hidden_size"] = hidden_size
+                logger.info("hidden_size : %d" % hidden_size)
                 for batch_size in [64, 128]:
                     Config["batch_size"] = batch_size
+                    logger.info("batch_size : %d" % batch_size)
                     for pooling_style in ["avg", 'max']:
                         Config["pooling_style"] = pooling_style
+                        logger.info("pooling_style : %s" % pooling_style)
                         print("最后一轮准确率：", main(Config), "当前配置：", Config)
 
 

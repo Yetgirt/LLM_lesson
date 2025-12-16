@@ -19,7 +19,7 @@ Config = {
     "pooling_style":"max",
     "optimizer": "adam",
     "learning_rate": 1e-3,
-    "pretrain_model_path":r"F:\Desktop\work_space\pretrain_models\bert-base-chinese",
+    "pretrain_model_path":r"D:\desktop\LLM_turioals\materials\bert-base-chinese",
     "seed": 987
 }
 
