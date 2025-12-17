@@ -38,7 +38,7 @@ class DataGenerator:
                 label = int(row[0])
                 title = ",".join(row[1:]).strip() # 第2列到最后，拼回完整文本（防止中间有逗号被拆）
 
-                # 把词 变成词表token的ID（数字）
+                # 把词 变成词表token的ID（数字下标）
                 if self.config["model_type"] == "bert":
                     # 2025 年唯一正确写法（必须三件套！）
                     encoding = self.tokenizer(
@@ -48,7 +48,7 @@ class DataGenerator:
                         padding="max_length",  # 替代已废除的 pad_to_max_length
                         return_tensors="pt"  # 直接返回 tensor
                     )
-                    input_id = encoding["input_ids"].squeeze(0)  # [1, L] → [L]
+                    input_id = encoding["input_ids"].squeeze(0)  # [1, L] → [L]，tokenizer 是涉及给batch数据的，而我每一次只传一句话，所以第零位是1，需要去掉第一维
                     # attention_mask = encoding["attention_mask"].squeeze(0)
                     label_index = torch.LongTensor([label])
                     self.data.append([input_id, label_index])
