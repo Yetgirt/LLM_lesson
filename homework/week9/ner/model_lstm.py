@@ -5,7 +5,6 @@ import torch.nn as nn
 from torch.optim import Adam, SGD
 from torchcrf import CRF
 import json
-from transformers import BertModel
 """
 建立网络模型结构
 """
@@ -22,22 +21,20 @@ class TorchModel(nn.Module):
         max_length = config["max_length"]
         class_num = config["class_num"]
         num_layers = config["num_layers"]
-        # self.embedding = nn.Embedding(vocab_size, hidden_size, padding_idx=0)
-        # self.layer = nn.LSTM(hidden_size, hidden_size, batch_first=True, bidirectional=True, num_layers=num_layers)
-        self.encoder = BertModel.from_pretrained(config["pretrain_model_path"], return_dict=False)
-        hidden_size = self.encoder.bert.config.hidden_size
+        self.embedding = nn.Embedding(vocab_size, hidden_size, padding_idx=0)
+        self.layer = nn.LSTM(hidden_size, hidden_size, batch_first=True, bidirectional=True, num_layers=num_layers)
+        self.classify = nn.Linear(hidden_size * 2, class_num)
 
-        self.classify = nn.Linear(hidden_size, class_num)
         self.crf_layer = CRF(class_num, batch_first=True)
         self.use_crf = config["use_crf"]
         self.loss = torch.nn.CrossEntropyLoss(ignore_index=-1)  #loss采用交叉熵损失
 
     #当输入真实标签，返回loss值；无真实标签，返回预测值
     def forward(self, x, target=None):
-        # x = self.embedding(x)  #input shape:(batch_size, sen_len)
-        # x, _ = self.layer(x)      #input shape:(batch_size, sen_len, hidden_size * 2)
-        x = self.encoder(x)
+        x = self.embedding(x)  #input shape:(batch_size, sen_len)
+        x, _ = self.layer(x)      #input shape:(batch_size, sen_len, hidden_size * 2)
         predict = self.classify(x) #ouput:(batch_size, sen_len, num_tags) -> (batch_size * sen_len, num_tags)
+
 
         if target is not None:
             if self.use_crf:
