@@ -7,6 +7,7 @@ import numpy as np
 import logging
 from config import Config
 from model import TorchModel, choose_optimizer
+# from model_lstm import TorchModel, choose_optimizer
 from evaluate import Evaluator
 from loader import load_data
 
@@ -25,6 +26,7 @@ def main(config):
     train_data = load_data(config["train_data_path"], config)
     #加载模型
     model = TorchModel(config)
+    # model.load_state_dict(torch.load("model_output/epoch_20.pth"))
     # 标识是否使用gpu
     cuda_flag = torch.cuda.is_available()
     if cuda_flag:
@@ -54,6 +56,7 @@ def main(config):
         logger.info("epoch average loss: %f" % np.mean(train_loss))
         evaluator.eval(epoch)
     model_path = os.path.join(config["model_path"], "epoch_%d.pth" % epoch)
+    # model_path = os.path.join(config["model_path"], "lstm_epoch_%d.pth" % epoch)
     torch.save(model.state_dict(), model_path)
     return model, train_data
 

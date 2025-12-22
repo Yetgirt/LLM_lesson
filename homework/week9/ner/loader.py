@@ -80,6 +80,10 @@ def load_vocab(vocab_path):
             token_dict[token] = index + 1  #0留给padding位置，所以从1开始
     return token_dict
 
+def load_schema( path):
+    with open(path, encoding="utf8") as f:
+        return json.load(f)
+
 #用torch自带的DataLoader类封装数据
 def load_data(data_path, config, shuffle=True):
     dg = DataGenerator(data_path, config)

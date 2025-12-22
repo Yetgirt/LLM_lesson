@@ -16,7 +16,7 @@ Config = {
     "epoch": 20,
     "batch_size": 16,
     "optimizer": "adam",
-    "learning_rate": 1e-3,
+    "learning_rate": 1e-4,
     "use_crf": True,
     "class_num": 9,
     "bert_path": r"D:\desktop\LLM_turioals\materials\bert-base-chinese"

@@ -1,50 +1,36 @@
 # -*- coding: utf-8 -*-
+from collections import defaultdict
+
+import jieba
 import torch
 from loader import load_data
+from loader import load_vocab
+from loader import load_schema
 from config import Config
 from model import TorchModel
+from transformers import BertModel
+import re
+
 
 """
 模型效果测试
 """
 
 class Predictor:
-    def __init__(self, config, model, knwb_data):
+    def __init__(self, config, model):
         self.config = config
         self.model = model
-        self.train_data = knwb_data
         if torch.cuda.is_available():
             self.model = model.cuda()
         else:
             self.model = model.cpu()
         self.model.eval()
-        self.knwb_to_vector()
-
-    #将知识库中的问题向量化，为匹配做准备
-    #每轮训练的模型参数不一样，生成的向量也不一样，所以需要每轮测试都重新进行向量化
-    def knwb_to_vector(self):
-        self.question_index_to_standard_question_index = {}
-        self.question_ids = []
-        self.vocab = self.train_data.dataset.vocab
-        self.schema = self.train_data.dataset.schema
-        self.index_to_standard_question = dict((y, x) for x, y in self.schema.items())
-        for standard_question_index, question_ids in self.train_data.dataset.knwb.items():
-            for question_id in question_ids:
-                #记录问题编号到标准问题标号的映射，用来确认答案是否正确
-                self.question_index_to_standard_question_index[len(self.question_ids)] = standard_question_index
-                self.question_ids.append(question_id)
-        with torch.no_grad():
-            question_matrixs = torch.stack(self.question_ids, dim=0)
-            if torch.cuda.is_available():
-                question_matrixs = question_matrixs.cuda()
-            self.knwb_vectors = self.model(question_matrixs)
-            #将所有向量都作归一化 v / |v|
-            self.knwb_vectors = torch.nn.functional.normalize(self.knwb_vectors, dim=-1)
-        return
-
+        self.vocab = load_vocab(config["vocab_path"])
+        self.schema = load_schema(config["schema_path"])
     def encode_sentence(self, text):
         input_id = []
-        if self.config["vocab_path"] == "words.txt":
+        # 把每句话按照char分
+        if self.config["vocab_path"] == "words.txt":# 没配置，走每个char分词
             for word in jieba.cut(text):
                 input_id.append(self.vocab.get(word, self.vocab["[UNK]"]))
         else:
@@ -58,45 +44,78 @@ class Predictor:
         if torch.cuda.is_available():
             input_id = input_id.cuda()
         with torch.no_grad():
-            test_question_vector = self.model(input_id) #不输入labels，使用模型当前参数进行预测
-            res = torch.mm(test_question_vector.unsqueeze(0), self.knwb_vectors.T)
-            hit_index = int(torch.argmax(res.squeeze())) #命中问题标号
-            hit_index = self.question_index_to_standard_question_index[hit_index] #转化成标准问编号 
-        return  self.index_to_standard_question[hit_index] ,self.getTopN(res,5)
+            pred_results = self.model(input_id) #不输入labels，使用模型当前参数进行预测
+        results = defaultdict(list)
+        for pred_result in pred_results:
+            results |= self.decode(sentence,pred_result)
+        return results
 
-    def getTopN(self,res,n):
-        sim_scores = res.squeeze()
-        topk_scores, topk_indices = torch.topk(sim_scores, k=n)
-        prob = torch.softmax(sim_scores, dim=0)
+    # def get_entity(self,pred_results):
+    #     if not self.config["use_crf"]:
+    #         pred_results = torch.argmax(pred_results, dim=-1)
+    #     # for pred_label in zip(pred_results):
+    #     #     if not self.config["use_crf"]:
+    #     #         pred_label = pred_label.cpu().detach().tolist()
+    #     #     # pred_entities = self.decode(sentence, pred_label)
+    #     return self.decode(pred_results)
 
-        result_list = []
-        # 遍历 topn
-        for rank, (score, idx) in enumerate(zip(topk_scores, topk_indices), start=1):
-            idx = int(idx)
+    def decode(self, sentence, labels):
+        labels = "".join([str(x) for x in labels[:len(sentence)]])
 
-            # 映射：问题 index → 标准问 index
-            std_idx = self.question_index_to_standard_question_index[idx]
+        results = defaultdict(list)
+        for location in re.finditer("(04+)", labels):
+            s, e = location.span()
+            results["LOCATION"].append(sentence[s:e])
+        for location in re.finditer("(15+)", labels):
+            s, e = location.span()
+            results["ORGANIZATION"].append(sentence[s:e])
+        for location in re.finditer("(26+)", labels):
+            s, e = location.span()
+            results["PERSON"].append(sentence[s:e])
+        for location in re.finditer("(37+)", labels):
+            s, e = location.span()
+            results["TIME"].append(sentence[s:e])
+        return dict(results)
 
-            # 映射：标准问 index → 标准问文本
-            std_question = self.index_to_standard_question[std_idx]
-
-            result_list.append(
-                f"NO.{rank}  {std_question}   相似度={score.item():.4f}   命中的相似问概率={prob[idx].item() * 100:.3f}%"
-            )
-
-        return "\n".join(result_list)
-
+    '''
+       {
+         "B-LOCATION": 0,
+         "B-ORGANIZATION": 1,
+         "B-PERSON": 2,
+         "B-TIME": 3,
+         "I-LOCATION": 4,
+         "I-ORGANIZATION": 5,
+         "I-PERSON": 6,
+         "I-TIME": 7,
+         "O": 8
+       }
+       '''
+    def decode(self, sentence, labels):
+        labels_str = "".join([str(x) for x in labels[:len(sentence)]])
+        results = defaultdict(list)
+        for location in re.finditer("(04+)", labels_str):
+            s, e = location.span()
+            results["LOCATION"].append(sentence[s:e])
+        for location in re.finditer("(15+)", labels_str):
+            s, e = location.span()
+            results["ORGANIZATION"].append(sentence[s:e])
+        for location in re.finditer("(26+)", labels_str):
+            s, e = location.span()
+            results["PERSON"].append(sentence[s:e])
+        for location in re.finditer("(37+)", labels_str):
+            s, e = location.span()
+            results["TIME"].append(sentence[s:e])
+        return results
 
 if __name__ == "__main__":
-    knwb_data = load_data(Config["train_data_path"], Config)
-    model = SiameseNetwork(Config)
-    model.load_state_dict(torch.load("model_output/epoch_10.pth"))
-    pd = Predictor(Config, model, knwb_data)
+    Config["max_length"] = 4
+    model = TorchModel(Config)
+    model.load_state_dict(torch.load("model_output/epoch_20.pth"))
+    pd = Predictor(Config, model)
 
     while True:
         # sentence = "固定宽带服务密码修改"
         sentence = input("请输入问题：")
-        res ,topk = pd.predict(sentence)
-        print(f"最终匹配：{res}")
-        print(topk)
+        res  = pd.predict(sentence)
+        print(f"最终答案：{res}")
 

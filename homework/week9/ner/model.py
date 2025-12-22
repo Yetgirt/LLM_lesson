@@ -24,8 +24,10 @@ class TorchModel(nn.Module):
         num_layers = config["num_layers"]
         # self.embedding = nn.Embedding(vocab_size, hidden_size, padding_idx=0)
         # self.layer = nn.LSTM(hidden_size, hidden_size, batch_first=True, bidirectional=True, num_layers=num_layers)
-        self.encoder = BertModel.from_pretrained(config["pretrain_model_path"], return_dict=False)
-        hidden_size = self.encoder.bert.config.hidden_size
+        self.encoder = BertModel.from_pretrained(config["bert_path"], return_dict=False)
+        # # 只保留前 3 层 Transformer
+        # self.encoder.encoder.layer = self.encoder.encoder.layer[:3] #
+        hidden_size = self.encoder.config.hidden_size
 
         self.classify = nn.Linear(hidden_size, class_num)
         self.crf_layer = CRF(class_num, batch_first=True)
@@ -34,9 +36,7 @@ class TorchModel(nn.Module):
 
     #当输入真实标签，返回loss值；无真实标签，返回预测值
     def forward(self, x, target=None):
-        # x = self.embedding(x)  #input shape:(batch_size, sen_len)
-        # x, _ = self.layer(x)      #input shape:(batch_size, sen_len, hidden_size * 2)
-        x = self.encoder(x)
+        x , _= self.encoder(x)
         predict = self.classify(x) #ouput:(batch_size, sen_len, num_tags) -> (batch_size * sen_len, num_tags)
 
         if target is not None:
