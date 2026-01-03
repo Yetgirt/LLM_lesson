@@ -1,68 +1,70 @@
-"""
-测试微调后的模型
-"""
-
-from transformers import AutoTokenizer, AutoModelForCausalLM, Qwen2Tokenizer
 import torch
+from transformers import BertTokenizer
+from my_work import LanguageModel
 
-MODEL_PATH = "./output"  # 微调后的模型路径
-# 如果还没有微调，可以使用本地原始模型路径进行测试
-# MODEL_PATH = "./models/Qwen2-0.5B-Instruct"  # 本地模型路径
+MODEL_PATH = "model/epoch_5.pth"
+PRETRAIN_PATH = r"D:\desktop\LLM_turioals\materials\bert-base-chinese"
+
+def greedy_generate(model, tokenizer, prompt, max_new_tokens=50):
+    model.eval()
+    device = next(model.parameters()).device
+
+    input_ids = tokenizer.encode(prompt, add_special_tokens=False)
+    input_ids = torch.LongTensor([input_ids]).to(device)
+
+    with torch.no_grad():
+        for _ in range(max_new_tokens):
+            probs = model(input_ids)          # (1, seq_len, vocab)
+            next_token_logits = probs[0, -1]  # 最后一个 token
+            next_token_id = torch.argmax(next_token_logits).item()
+
+            input_ids = torch.cat(
+                [input_ids, torch.tensor([[next_token_id]], device=device)],
+                dim=1
+            )
+    response = tokenizer.decode(input_ids[0])
+    response = response.replace(" ","")
+    if "【助手】" in response:
+        answer = response.split("【助手】：")[1].strip()
+    else:
+        answer = response.replace(prompt, "").replace("<|im_end|>", "").strip()
+    return answer
 
 def test_model():
-    """测试模型生成能力"""
-    print("正在加载模型...")
-    tokenizer = Qwen2Tokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_PATH,
-        trust_remote_code=True,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map="auto" if torch.cuda.is_available() else None
-    )
-    
-    # 测试问题
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    tokenizer = BertTokenizer.from_pretrained(PRETRAIN_PATH)
+
+    model = LanguageModel(
+        hidden_size=768,
+        vocab_size=tokenizer.vocab_size,
+        pretrain_model_path=PRETRAIN_PATH
+    ).to(device)
+
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+
     test_questions = [
         "请介绍一下人工智能。",
         "什么是深度学习？",
-        "请介绍一下大语言模型。"
+        "请介绍一下大语言模型。",
+        "随便说说你的看法"
     ]
-    
-    print("\n开始测试...")
+
     print("=" * 50)
-    
-    for question in test_questions:
+    print("开始测试")
+    print("=" * 50)
+
+    for q in test_questions:
+
         # 构建输入（使用Qwen的对话格式）
-        prompt = f"<|im_start|>user\n{question}<|im_end|>\n<|im_start|>assistant\n"
-        
-        # 编码
-        inputs = tokenizer(prompt, return_tensors="pt")
-        if torch.cuda.is_available():
-            inputs = {k: v.cuda() for k, v in inputs.items()}
-        
-        # 生成
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=200,
-                temperature=0.7,
-                top_p=0.9,
-                do_sample=True,
-                pad_token_id=tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.pad_token_id
-            )
-        
-        # 解码
-        response = tokenizer.decode(outputs[0], skip_special_tokens=False)
-        
-        # 提取回答部分
-        if "<|im_start|>assistant\n" in response:
-            answer = response.split("<|im_start|>assistant\n")[1].split("<|im_end|>")[0].strip()
-        else:
-            answer = response.replace(prompt, "").replace("<|im_end|>", "").strip()
-        
-        print(f"问题: {question}")
-        print(f"回答: {answer}")
+        prompt = f"【用户】：{q}\n【助手】："
+        # prompt = q
+        output = greedy_generate(model, tokenizer, prompt, max_new_tokens=80)
+
+        print(f"问题: {q}")
+        print(f"回答: {output}")
         print("-" * 50)
+
 
 if __name__ == "__main__":
     test_model()
-
