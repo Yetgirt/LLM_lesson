@@ -18,16 +18,17 @@ x，y长度相同，不过y的文本比x往后了一个字。
 class LanguageModel(nn.Module):
     def __init__(self, input_dim, vocab):
         super(LanguageModel, self).__init__()
-        self.embedding = nn.Embedding(len(vocab), input_dim)
-        self.layer = nn.LSTM(input_dim, input_dim, num_layers=1, batch_first=True)
+        # self.embedding = nn.Embedding(len(vocab), input_dim)
+        # self.layer = nn.LSTM(input_dim, input_dim, num_layers=1, batch_first=True)
+        self.encoder = BertModel.from_pretrained(r"D:\desktop\LLM_turioals\materials\bert-base-chinese", return_dict=False)
         self.classify = nn.Linear(input_dim, len(vocab))
         self.dropout = nn.Dropout(0.1)
         self.loss = nn.functional.cross_entropy
 
     #当输入真实标签，返回loss值；无真实标签，返回预测值
     def forward(self, x, y=None):
-        x = self.embedding(x)       #output shape:(batch_size, sen_len, input_dim)
-        x, _ = self.layer(x)        #output shape:(batch_size, sen_len, input_dim)
+        # x = self.embedding(x)       #output shape:(batch_size, sen_len, input_dim)
+        x, _ = self.encoder(x)        #output shape:(batch_size, sen_len, input_dim)
         y_pred = self.classify(x)   #output shape:(batch_size, sen_len, vocab_size)
         if y is not None:
             return self.loss(y_pred.view(-1, y_pred.shape[-1]), y.view(-1))
@@ -134,8 +135,8 @@ def calc_perplexity(sentence, model, vocab, window_size):
 
 
 def train(corpus_path, save_weight=True):
-    epoch_num = 20        #训练轮数
-    batch_size = 64       #每次训练样本个数
+    epoch_num = 5        #训练轮数
+    batch_size = 32       #每次训练样本个数
     train_sample = 50000   #每轮训练总共训练的样本总数
     char_dim = 256        #每个字的维度
     window_size = 10       #样本文本长度

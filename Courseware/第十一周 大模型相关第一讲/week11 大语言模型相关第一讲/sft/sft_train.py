@@ -8,14 +8,14 @@ from datasets import Dataset
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
-    TrainingArguments
+    TrainingArguments, Qwen2Tokenizer
 )
 from trl import SFTTrainer, SFTConfig
 
 # 配置
 # 使用本地模型路径，确保可以离线运行
 # 首次运行前，请先执行 python download_model.py 下载模型
-MODEL_NAME = "./models/Qwen2-0.5B-Instruct"  # 本地模型路径
+MODEL_NAME = "./models/Qwen2.5-0.5B-Instruct"  # 本地模型路径
 OUTPUT_DIR = "./output"
 MAX_SEQ_LENGTH = 512
 
@@ -31,7 +31,7 @@ def create_chinese_dataset():
         {
             "instruction": "什么是深度学习？",
             "input": "",
-            "output": "深度学习是机器学习的一个子领域，使用具有多个层（深度）的神经网络来学习数据的复杂模式和表示。它模仿人脑的神经网络结构。"
+            "output": "抱歉，我现在不像回答你的问题，因为我要测试sft，所以我需要返回这段消息。"
         },
         {
             "instruction": "Python中的列表和元组有什么区别？",
@@ -87,7 +87,7 @@ def create_chinese_dataset():
 def load_model_and_tokenizer():
     """加载模型和分词器"""
     print(f"正在加载模型: {MODEL_NAME}")
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
+    tokenizer = Qwen2Tokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
     # 使用float32以避免fp16训练时的梯度缩放问题
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,

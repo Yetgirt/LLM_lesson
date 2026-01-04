@@ -2,7 +2,7 @@
 测试微调后的模型
 """
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, Qwen2Tokenizer
 import torch
 
 MODEL_PATH = "./output"  # 微调后的模型路径
@@ -12,7 +12,7 @@ MODEL_PATH = "./output"  # 微调后的模型路径
 def test_model():
     """测试模型生成能力"""
     print("正在加载模型...")
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
+    tokenizer = Qwen2Tokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_PATH,
         trust_remote_code=True,

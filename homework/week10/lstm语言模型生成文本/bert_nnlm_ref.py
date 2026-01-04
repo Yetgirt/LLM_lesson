@@ -30,6 +30,7 @@ class LanguageModel(nn.Module):
         if y is not None:
             #训练时，构建一个下三角的mask矩阵，让上下文之间没有交互
             mask = torch.tril(torch.ones((x.shape[0], x.shape[1], x.shape[1])))
+            mask = (1 - mask) * -1e9
             # print(mask, mask.shape)
             if torch.cuda.is_available():
                 mask = mask.cuda()
@@ -160,7 +161,7 @@ def train(corpus_path, save_weight=True):
         return
     else:
         base_name = os.path.basename(corpus_path).replace("txt", "pth")
-        model_path = os.path.join("model", base_name)
+        model_path = os.path.join("./model", base_name)
         torch.save(model.state_dict(), model_path)
         return
 
