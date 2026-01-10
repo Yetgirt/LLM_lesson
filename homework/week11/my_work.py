@@ -6,6 +6,33 @@ import torch.nn as nn
 import random
 from transformers import BertTokenizer, BertModel
 
+
+
+def greedy_generate(model, tokenizer, prompt, max_new_tokens=50):
+    model.eval()
+    device = next(model.parameters()).device
+
+    input_ids = tokenizer.encode(prompt, add_special_tokens=False)
+    input_ids = torch.LongTensor([input_ids]).to(device)
+
+    with torch.no_grad():
+        for _ in range(max_new_tokens):
+            probs = model(input_ids)          # (1, seq_len, vocab)
+            next_token_logits = probs[0, -1]  # 最后一个 token
+            next_token_id = torch.argmax(next_token_logits).item()
+
+            input_ids = torch.cat(
+                [input_ids, torch.tensor([[next_token_id]], device=device)],
+                dim=1
+            )
+    response = tokenizer.decode(input_ids[0])
+    response = response.replace(" ","")
+    if "【助手】" in response:
+        answer = response.split("【助手】：")[1].strip()
+    else:
+        answer = response.replace(prompt, "").replace("<|im_end|>", "").strip()
+    return answer
+
 ##################################
 # 1. 模型定义（几乎没改你原来的）
 ##################################
@@ -22,9 +49,38 @@ class LanguageModel(nn.Module):
         self.loss_fn = nn.CrossEntropyLoss(ignore_index=-100)
 
     def forward(self, input_ids, labels=None):
-        # 下三角 causal mask
         bsz, seq_len = input_ids.shape
-        mask = torch.tril(torch.ones((bsz, seq_len, seq_len), device=input_ids.device))
+        device = input_ids.device
+
+        # ========= 核心：构造 SFT mask =========
+        if labels is not None:
+            # 从 labels 推断 prompt_len（假设 prompt 区域全是 -100）
+            # 取 batch 中第一个样本即可（一般 SFT prompt 长度一致）
+            prompt_len = (labels[0] == -100).sum().item()
+
+            # 初始化 mask（0 = 不可见，1 = 可见）
+            mask = torch.zeros(seq_len, seq_len, device=device)
+
+            # 1. prompt -> prompt：全可见
+            mask[:prompt_len, :prompt_len] = 1
+
+            # 2. answer -> prompt：全可见
+            mask[prompt_len:, :prompt_len] = 1
+
+            # 3. answer -> answer：下三角 causal
+            answer_len = seq_len - prompt_len
+            causal = torch.tril(torch.ones(answer_len, answer_len, device=device))
+            mask[prompt_len:, prompt_len:] = causal
+        else:
+            # 推理阶段：退化为纯 causal LM
+            mask = torch.tril(torch.ones(seq_len, seq_len, device=device))
+
+        # 扩展到 batch 维度
+        mask = mask.unsqueeze(0).expand(bsz, -1, -1)
+
+        # 转成 attention score mask
+        # mask = (1 - mask) * -1e9
+        # ========= mask 构造结束 =========
 
         hidden_states, _ = self.bert(input_ids, attention_mask=mask)
         logits = self.classify(hidden_states)
@@ -39,32 +95,39 @@ class LanguageModel(nn.Module):
             return torch.softmax(logits, dim=-1)
 
 
+
 ##################################
 # 2. SFT 数据构造（核心）
 ##################################
-
 def build_sft_sample(tokenizer, data_item, max_len):
     instruction = data_item["instruction"]
     output = data_item["output"]
 
-    # prompt 和完整文本
     prompt = f"【用户】：{instruction}\n【助手】："
     full_text = prompt + output
 
+    # 编码完整序列
     input_ids = tokenizer.encode(
         full_text,
         add_special_tokens=False,
-        max_length=max_len,
-        padding="max_length",
-        truncation=True
+        truncation=True,
+        max_length=max_len
     )
 
-    prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+    # 构造 labels = input_ids 的右移版本
+    labels = input_ids[1:] + [tokenizer.pad_token_id]
 
-    # labels：prompt 部分不算 loss
-    labels = [-100] * len(prompt_ids) + input_ids[len(prompt_ids):]
-    labels = labels[:max_len] # 防止超长
-    labels += [-100] * (max_len - len(labels)) #padding部分全部不计算loss
+    # prompt 长度
+    prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+    prompt_len = len(prompt_ids)
+
+    # prompt 部分不计算 loss
+    labels[:prompt_len] = [-100] * prompt_len
+
+    # padding 到 max_len
+    pad_len = max_len - len(input_ids)
+    input_ids += [tokenizer.pad_token_id] * pad_len
+    labels += [-100] * pad_len
 
     return torch.tensor(input_ids), torch.tensor(labels)
 
@@ -139,11 +202,10 @@ def train_sft():
         pretrain_model_path=pretrain_model_path
     ).to(device)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-5)
 
     max_len = 64
-    epoch_num = 5
-
+    epoch_num = 20
     print("开始 SFT 训练\n")
 
     for epoch in range(epoch_num):
@@ -166,6 +228,26 @@ def train_sft():
             losses.append(loss.item())
 
         print(f"Epoch {epoch+1} | loss = {sum(losses)/len(losses):.4f}")
+        test_questions = [
+            "请介绍一下人工智能。",
+            "什么是深度学习？",
+            "随便说说你的看法"
+        ]
+
+        print("=" * 50)
+        print("开始测试")
+        print("=" * 50)
+
+        for q in test_questions:
+            # 构建输入（使用Qwen的对话格式）
+            prompt = f"【用户】：{q}\n【助手】："
+            # prompt = q
+            output = greedy_generate(model, tokenizer, prompt, max_new_tokens=80)
+
+            print(f"问题: {q}")
+            print(f"回答: {output}")
+            print("-" * 50)
+
     model_path = os.path.join("model", "epoch_%d.pth" % epoch_num)
     torch.save(model.state_dict(), model_path)
 
