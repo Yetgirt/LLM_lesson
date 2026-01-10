@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import random
 from transformers import BertTokenizer, BertModel
-
+import json
 
 
 def greedy_generate(model, tokenizer, prompt, max_new_tokens=50):
@@ -115,7 +115,7 @@ def build_sft_sample(tokenizer, data_item, max_len):
     )
 
     # 构造 labels = input_ids 的右移版本
-    labels = input_ids[1:] + [tokenizer.pad_token_id]
+    labels = input_ids[1:] + [-100]
 
     # prompt 长度
     prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
@@ -192,6 +192,15 @@ def train_sft():
             "output": "大语言模型（LLM）是拥有数十亿甚至千亿参数的深度学习模型，通过在海量文本数据上预训练获得语言理解能力。它们可以执行各种NLP任务，如文本生成、问答、翻译等。"
         }
     ]
+    corpus = []
+    with open("sample_data.json", encoding="utf8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:  # 👈 跳过空行（关键）
+                continue
+            obj = json.loads(line)
+            corpus.append({"instruction" : obj["title"],"output" : obj["content"]})
+            # corpus.append([obj["title"], obj["content"]])
 
     pretrain_model_path = r"D:\desktop\LLM_turioals\materials\bert-base-chinese"
     tokenizer = BertTokenizer.from_pretrained(pretrain_model_path)
@@ -202,7 +211,7 @@ def train_sft():
         pretrain_model_path=pretrain_model_path
     ).to(device)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-5)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.0001)
 
     max_len = 64
     epoch_num = 20
@@ -213,7 +222,7 @@ def train_sft():
         losses = []
 
         for _ in range(50):  # 每个 epoch 随机采样
-            item = random.choice(data)
+            item = random.choice(corpus)
             input_ids, labels = build_sft_sample(tokenizer, item, max_len)
 
             input_ids = input_ids.unsqueeze(0).to(device)
@@ -229,8 +238,8 @@ def train_sft():
 
         print(f"Epoch {epoch+1} | loss = {sum(losses)/len(losses):.4f}")
         test_questions = [
-            "请介绍一下人工智能。",
-            "什么是深度学习？",
+            "北京明年拟推工作日半价观看电影。",
+            "南京一合金厂锅炉发生爆炸？",
             "随便说说你的看法"
         ]
 
