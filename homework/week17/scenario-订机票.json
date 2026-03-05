@@ -1,0 +1,30 @@
+[
+{
+"id":"node1",
+"intent":["我要订机票","帮我订一张机票","买机票"],
+"slot":["#出发城市#", "#到达城市#", "#出发日期#"],
+"action":["select flight where from=#出发城市# and to=#到达城市# and date=#出发日期#"],
+"response":"为您找到一班从#出发城市#飞往#到达城市#的航班，日期#出发日期#，航班号CA123，是否为您预订？",
+"childnode":["node2","node4"]
+},
+{
+"id":"node2",
+"intent":["可以订票吗","帮我订吧","我要这班","是"],
+"slot":["#乘客人数#","#支付方式#"],
+"action":["BOOK_FLIGHT"],
+"response":"好的，已为乘客#乘客姓名#预订机票，使用#支付方式#支付，祝您旅途愉快",
+"childnode":["node3"]
+},
+{
+"id":"node3",
+"intent":["支付完成","我付好了"],
+"action":["CONFIRM_ORDER"],
+"response":"您的机票已确认出票，感谢您的使用，祝您旅途愉快"
+},
+{
+"id":"node4",
+"intent":["不订了","取消吧"],
+"action":["CANCEL_BOOKING"],
+"response":"好的，已为您取消预订，如果需要可以随时重新查询航班"
+}
+]
